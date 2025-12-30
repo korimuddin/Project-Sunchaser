@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nearby Places - Discover What's Open</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); }
+        .card-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .timer-urgent { animation: pulse 2s infinite; }
+        .timer-warning { animation: pulse 3s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .map-container { height: calc(100vh - 200px); background: linear-gradient(135deg, #e3f2fd 0%, #f5f5f5 100%); position: relative; }
+        .list-container { height: calc(100vh - 200px); overflow-y: auto; }
+        .category-active { background: #4ecdc4; color: white; }
+        .category-inactive { background: #f8f9fa; color: #2c3e50; }
+        .floating-btn { position: fixed; bottom: 80px; right: 20px; z-index: 1000; }
+        .search-expand { transition: width 0.3s ease; }
+        .place-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .place-card:active { transform: scale(0.98); }
+        .mock-map { display: flex; align-items: center; justify-content: center; height: 100%; color: #666; }
+        .location-pin { width: 30px; height: 30px; background: #ff4444; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); position: relative; margin: 20px; }
+        .location-pin::after { content: ''; width: 10px; height: 10px; background: white; border-radius: 50%; position: absolute; top: 10px; left: 10px; transform: rotate(45deg); }
+        .place-marker { position: absolute; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white p-4 sticky top-0 z-50">
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-xl font-bold">Nearby Places</h1>
+            <div class="flex items-center space-x-2">
+                <div id="locationStatus" class="flex items-center">
+                    <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    <span class="text-sm">Ready</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="relative">
+            <input type="text" id="searchInput" placeholder="Search places..." 
+                   class="w-full px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50">
+            <button id="searchBtn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-white/70">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Category Filters -->
+    <div class="bg-white p-4 border-b">
+        <div class="flex space-x-2 overflow-x-auto pb-2" id="categoryFilters">
+            <button class="category-btn category-active px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center" data-category="all">
+                <span class="mr-2">🌍</span> All
+            </button>
+            <button class="category-btn category-inactive px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center" data-category="restaurant">
+                <span class="mr-2">🍽️</span> Restaurants
+            </button>
+            <button class="category-btn category-inactive px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center" data-category="cafe">
+                <span class="mr-2">☕</span> Cafés
+            </button>
+            <button class="category-btn category-inactive px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center" data-category="store">
+                <span class="mr-2">🛍️</span> Shops
+            </button>
+            <button class="category-btn category-inactive px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center" data-category="movie_theater">
+                <span class="mr-2">🎬</span> Theatres
+            </button>
+            <button class="category-btn category-inactive px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center" data-category="museum">
+                <span class="mr-2">🏛️</span> Museums
+            </button>
+            <button class="category-btn category-inactive px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center" data-category="tourist_attraction">
+                <span class="mr-2">🎯</span> Attractions
+            </button>
+        </div>
+    </div>
+
+    <!-- View Toggle -->
+    <div class="bg-white p-4 border-b">
+        <div class="flex bg-gray-100 rounded-lg p-1">
+            <button id="mapViewBtn" class="flex-1 py-2 px-4 rounded-md bg-white shadow-sm text-sm font-medium text-blue-600">Map View</button>
+            <button id="listViewBtn" class="flex-1 py-2 px-4 rounded-md text-sm font-medium text-gray-600">List View</button>
+        </div>
+    </div>
+
+    <!-- Map View -->
+    <div id="mapView" class="map-container">
+        <div class="mock-map">
+            <div style="text-align: center;">
+                <div class="location-pin"></div>
+                <h3 style="margin: 20px 0 10px 0; color: #333;">Your Location</h3>
+                <p style="color: #666; font-size: 14px;">6 places nearby</p>
+                
+                <!-- Place Markers -->
+                <div class="place-marker" style="top: 20%; left: 30%; background: #8B4513;">☕</div>
+                <div class="place-marker" style="top: 40%; left: 60%; background: #3F51B5;">🏛️</div>
+                <div class="place-marker" style="top: 60%; left: 25%; background: #FF6B6B;">🍽️</div>
+                <div class="place-marker" style="top: 25%; left: 75%; background: #D32F2F;">🎬</div>
+                <div class="place-marker" style="top: 70%; left: 70%; background: #9C27B0;">🛍️</div>
+                <div class="place-marker" style="top: 50%; left: 50%; background: #FFC107;">🎯</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- List View -->
+    <div id="listView" class="list-container hidden p-4">
+        <div id="placesList" class="space-y-4">
+            <!-- Places will be populated here -->
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p class="text-gray-600">Finding nearby places...</p>
+        </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button id="centerLocationBtn" class="floating-btn bg-blue-600 text-white p-4 rounded-full shadow-lg">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+    </button>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t z-40">
+        <div class="flex">
+            <a href="index.html" class="flex-1 py-3 px-4 text-center text-blue-600">
+                <svg class="w-6 h-6 mx-auto mb-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 10 9 11 1.09-.21 2.11-.71 3-1.36V21h2v-4.36c.89.65 1.91 1.15 3 1.36 5.16-1 9-5.45 9-11V7l-10-5z"/>
+                </svg>
+                <span class="text-xs">Discover</span>
+            </a>
+            <a href="favorites.html" class="flex-1 py-3 px-4 text-center text-gray-400">
+                <svg class="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+                <span class="text-xs">Favorites</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        // Standalone Nearby Places App - No Google Maps API Required
+        class NearbyPlacesApp {
+            constructor() {
+                this.places = [];
+                this.currentView = 'map';
+                this.activeCategories = ['all'];
+                this.timers = new Map();
+                this.favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+                this.userLocation = { lat: 40.7128, lng: -74.0060 }; // Default to NYC
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.loadMockData(); // Load demo data immediately
+                this.hideLoading();
+            }
+
+            setupEventListeners() {
+                // View toggle buttons
+                document.getElementById('mapViewBtn').addEventListener('click', () => this.switchView('map'));
+                document.getElementById('listViewBtn').addEventListener('click', () => this.switchView('list'));
+                
+                // Category filters
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.toggleCategory(e.target.dataset.category));
+                });
+                
+                // Search functionality
+                document.getElementById('searchInput').addEventListener('input', (e) => this.handleSearch(e.target.value));
+                document.getElementById('searchBtn').addEventListener('click', () => this.performSearch());
+                
+                // Location centering
+                document.getElementById('centerLocationBtn').addEventListener('click', () => this.centerOnLocation());
+                
+                // Handle page visibility changes for timer updates
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) {
+                        this.updateAllTimers();
+                    }
+                });
+            }
+
+            loadMockData() {
+                // Demo data with all required information
+                this.places = [
+                    {
+                        place_id: 'coffee-house-123',
+                        name: 'The Coffee House',
+                        vicinity: '123 Main St, Downtown',
+                        types: ['cafe', 'restaurant'],
+                        rating: 4.5,
+                        geometry: { location: { lat: 40.7128, lng: -74.0060 } },
+                        details: {
+                            formatted_address: '123 Main St, Downtown, NY 10001',
+                            formatted_phone_number: '(555) 123-4567',
+                            website: 'https://coffeehouse.com',
+                            opening_hours: {
+                                periods: [
+                                    { open: { time: 600 }, close: { time: 2200 } },
+                                    { open: { time: 600 }, close: { time: 2200 } },
+                                    { open: { time: 600 }, close: { time: 2200 } },
+                                    { open: { time: 600 }, close: { time: 2200 } },
+                                    { open: { time: 600 }, close: { time: 2300 } },
+                                    { open: { time: 700 }, close: { time: 2300 } },
+                                    { open: { time: 700 }, close: { time: 2100 } }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        place_id: 'art-museum-456',
+                        name: 'City Museum of Art',
+                        vicinity: '456 Art District, Museum Quarter',
+                        types: ['museum'],
+                        rating: 4.8,
+                        geometry: { location: { lat: 40.7589, lng: -73.9851 } },
+                        details: {
+                            formatted_address: '456 Art District, Museum Quarter, NY 10002',
+                            formatted_phone_number: '(555) 234-5678',
+                            website: 'https://citymuseum.org',
+                            opening_hours: {
+                                periods: [
+                                    { open: { time: 1000 }, close: { time: 1800 } },
+                                    { open: { time: 900 }, close: { time: 1700 } },
+                                    { open: { time: 900 }, close: { time: 1700 } },
+                                    { open: { time: 900 }, close: { time: 1700 } },
+                                    { open: { time: 900 }, close: { time: 2100 } },
+                                    { open: { time: 900 }, close: { time: 2100 } },
+                                    { open: { time: 1000 }, close: { time: 1800 } }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        place_id: 'italian-restaurant-789',
+                        name: 'Bella Italia Restaurant',
+                        vicinity: '789 Little Italy, Food Street',
+                        types: ['restaurant'],
+                        rating: 4.3,
+                        geometry: { location: { lat: 40.7505, lng: -73.9934 } },
+                        details: {
+                            formatted_address: '789 Little Italy, Food Street, NY 10003',
+                            formatted_phone_number: '(555) 345-6789',
+                            website: 'https://bellaitalia.com',
+                            opening_hours: {
+                                periods: [
+                                    null,
+                                    { open: { time: 1700 }, close: { time: 2300 } },
+                                    { open: { time: 1700 }, close: { time: 2300 } },
+                                    { open: { time: 1700 }, close: { time: 2300 } },
+                                    { open: { time: 1700 }, close: { time: 2400 } },
+                                    { open: { time: 1700 }, close: { time: 2400 } },
+                                    { open: { time: 1600 }, close: { time: 2300 } }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        place_id: 'cinema-complex-321',
+                        name: 'Grand Cinema Complex',
+                        vicinity: '321 Theater District, Entertainment Ave',
+                        types: ['movie_theater'],
+                        rating: 4.1,
+                        geometry: { location: { lat: 40.7614, lng: -73.9776 } },
+                        details: {
+                            formatted_address: '321 Theater District, Entertainment Ave, NY 10004',
+                            formatted_phone_number: '(555) 456-7890',
+                            website: 'https://grandcinema.com',
+                            opening_hours: {
+                                periods: [
+                                    { open: { time: 1100 }, close: { time: 2300 } },
+                                    { open: { time: 1500 }, close: { time: 2300 } },
+                                    { open: { time: 1500 }, close: { time: 2300 } },
+                                    { open: { time: 1500 }, close: { time: 2300 } },
+                                    { open: { time: 1500 }, close: { time: 2400 } },
+                                    { open: { time: 1100 }, close: { time: 2400 } },
+                                    { open: { time: 1100 }, close: { time: 2400 } }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        place_id: 'fashion-boutique-654',
+                        name: 'Fashion Boutique',
+                        vicinity: '654 Shopping Mall, Retail Boulevard',
+                        types: ['store'],
+                        rating: 4.0,
+                        geometry: { location: { lat: 40.7282, lng: -73.9942 } },
+                        details: {
+                            formatted_address: '654 Shopping Mall, Retail Boulevard, NY 10005',
+                            formatted_phone_number: '(555) 567-8901',
+                            website: 'https://fashionboutique.com',
+                            opening_hours: {
+                                periods: [
+                                    { open: { time: 1000 }, close: { time: 2100 } },
+                                    { open: { time: 1000 }, close: { time: 2100 } },
+                                    { open: { time: 1000 }, close: { time: 2100 } },
+                                    { open: { time: 1000 }, close: { time: 2100 } },
+                                    { open: { time: 1000 }, close: { time: 2200 } },
+                                    { open: { time: 1000 }, close: { time: 2200 } },
+                                    { open: { time: 1100 }, close: { time: 2000 } }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        place_id: 'observation-deck-987',
+                        name: 'Skyline Observation Deck',
+                        vicinity: '987 Tower Heights, View Point',
+                        types: ['tourist_attraction'],
+                        rating: 4.7,
+                        geometry: { location: { lat: 40.7489, lng: -73.9680 } },
+                        details: {
+                            formatted_address: '987 Tower Heights, View Point, NY 10006',
+                            formatted_phone_number: '(555) 678-9012',
+                            website: 'https://skylineobservatory.com',
+                            opening_hours: {
+                                periods: [
+                                    { open: { time: 800 }, close: { time: 2200 } },
+                                    { open: { time: 800 }, close: { time: 2200 } },
+                                    { open: { time: 800 }, close: { time: 2200 } },
+                                    { open: { time: 800 }, close: { time: 2200 } },
+                                    { open: { time: 800 }, close: { time: 2300 } },
+                                    { open: { time: 800 }, close: { time: 2300 } },
+                                    { open: { time: 800 }, close: { time: 2200 } }
+                                ]
+                            }
+                        }
+                    }
+                ];
+
+                this.processPlaces();
+                this.showNotification('Demo mode: Showing sample places');
+            }
+
+            processPlaces() {
+                this.updateListView();
+                this.startCountdownTimers();
+            }
+
+            getPlaceCategory(place) {
+                const types = place.types || [];
+                if (types.includes('restaurant')) return 'restaurant';
+                if (types.includes('cafe') || types.includes('coffee')) return 'cafe';
+                if (types.includes('store') || types.includes('shopping')) return 'store';
+                if (types.includes('movie_theater')) return 'movie_theater';
+                if (types.includes('museum')) return 'museum';
+                if (types.includes('tourist_attraction')) return 'tourist_attraction';
+                return 'other';
+            }
+
+            getCategoryIcon(category) {
+                const icons = {
+                    restaurant: '🍽️',
+                    cafe: '☕',
+                    store: '🛍️',
+                    movie_theater: '🎬',
+                    museum: '🏛️',
+                    tourist_attraction: '🎯',
+                    other: '📍'
+                };
+                return icons[category] || icons.other;
+            }
+
+            getClosingTime(place) {
+                if (place.details && place.details.opening_hours) {
+                    const today = new Date();
+                    const dayOfWeek = today.getDay();
+                    const periods = place.details.opening_hours.periods;
+                    
+                    if (periods && periods[dayOfWeek]) {
+                        const closeTime = periods[dayOfWeek].close;
+                        if (closeTime) {
+                            const closingDate = new Date();
+                            closingDate.setHours(Math.floor(closeTime.time / 100), closeTime.time % 100, 0, 0);
+                            return closingDate;
+                        }
+                    }
+                }
+                
+                // Default closing time (11 PM)
+                const defaultClosing = new Date();
+                defaultClosing.setHours(23, 0, 0, 0);
+                return defaultClosing;
+            }
+
+            getTimeRemaining(closingTime) {
+                const now = new Date();
+                const timeDiff = closingTime.getTime() - now.getTime();
+                return Math.max(0, timeDiff);
+            }
+
+            getTimerUrgencyClass(timeRemaining) {
+                const hours = timeRemaining / (1000 * 60 * 60);
+                if (hours < 0.5) return 'text-red-600 timer-urgent';
+                if (hours < 2) return 'text-orange-600 timer-warning';
+                return 'text-green-600';
+            }
+
+            formatTimeRemaining(timeRemaining) {
+                if (timeRemaining <= 0) return 'Closed';
+                
+                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                
+                if (hours > 0) {
+                    return `${hours}h ${minutes}m`;
+                }
+                return `${minutes}m`;
+            }
+
+            switchView(view) {
+                this.currentView = view;
+                
+                const mapView = document.getElementById('mapView');
+                const listView = document.getElementById('listView');
+                const mapBtn = document.getElementById('mapViewBtn');
+                const listBtn = document.getElementById('listViewBtn');
+                
+                if (view === 'map') {
+                    mapView.classList.remove('hidden');
+                    listView.classList.add('hidden');
+                    mapBtn.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                    mapBtn.classList.remove('text-gray-600');
+                    listBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                    listBtn.classList.add('text-gray-600');
+                } else {
+                    mapView.classList.add('hidden');
+                    listView.classList.remove('hidden');
+                    listBtn.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                    listBtn.classList.remove('text-gray-600');
+                    mapBtn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                    mapBtn.classList.add('text-gray-600');
+                }
+                
+                // Animate view transition
+                anime({
+                    targets: view === 'map' ? mapView : listView,
+                    opacity: [0, 1],
+                    translateY: [20, 0],
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+            }
+
+            toggleCategory(category) {
+                const btn = document.querySelector(`[data-category="${category}"]`);
+                
+                if (category === 'all') {
+                    // Handle "all" category selection
+                    if (this.activeCategories.includes('all')) {
+                        return; // Must have at least one category
+                    } else {
+                        this.activeCategories = ['all'];
+                        document.querySelectorAll('.category-btn').forEach(b => {
+                            b.classList.remove('category-active');
+                            b.classList.add('category-inactive');
+                        });
+                        btn.classList.remove('category-inactive');
+                        btn.classList.add('category-active');
+                    }
+                } else {
+                    // Handle individual category selection
+                    if (this.activeCategories.includes('all')) {
+                        this.activeCategories = [category];
+                        document.querySelector('[data-category="all"]').classList.remove('category-active');
+                        document.querySelector('[data-category="all"]').classList.add('category-inactive');
+                        btn.classList.remove('category-inactive');
+                        btn.classList.add('category-active');
+                    } else {
+                        if (this.activeCategories.includes(category)) {
+                            this.activeCategories = this.activeCategories.filter(c => c !== category);
+                            btn.classList.remove('category-active');
+                            btn.classList.add('category-inactive');
+                            
+                            if (this.activeCategories.length === 0) {
+                                this.activeCategories = ['all'];
+                                document.querySelector('[data-category="all"]').classList.remove('category-inactive');
+                                document.querySelector('[data-category="all"]').classList.add('category-active');
+                            }
+                        } else {
+                            this.activeCategories.push(category);
+                            btn.classList.remove('category-inactive');
+                            btn.classList.add('category-active');
+                        }
+                    }
+                }
+                
+                // Animate button press
+                anime({
+                    targets: btn,
+                    scale: [1, 0.95, 1],
+                    duration: 200,
+                    easing: 'easeOutQuad'
+                });
+                
+                this.filterPlaces();
+            }
+
+            filterPlaces() {
+                let filteredPlaces = this.places;
+                
+                if (!this.activeCategories.includes('all')) {
+                    filteredPlaces = this.places.filter(place => {
+                        const category = this.getPlaceCategory(place);
+                        return this.activeCategories.includes(category);
+                    });
+                }
+                
+                this.updateListView(filteredPlaces);
+            }
+
+            updateListView(placesToShow = null) {
+                const places = placesToShow || this.places;
+                const placesList = document.getElementById('placesList');
+                
+                if (places.length === 0) {
+                    placesList.innerHTML = `
+                        <div class="text-center py-8">
+                            <p class="text-gray-500">No places found</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                placesList.innerHTML = places.map(place => this.createPlaceCard(place)).join('');
+                
+                // Start countdown timers for visible cards
+                this.startCountdownTimers();
+            }
+
+            createPlaceCard(place) {
+                const category = this.getPlaceCategory(place);
+                const categoryName = this.getCategoryDisplayName(category);
+                const closingTime = this.getClosingTime(place);
+                const timeRemaining = this.getTimeRemaining(closingTime);
+                const urgencyClass = this.getTimerUrgencyClass(timeRemaining);
+                const rating = place.rating || 0;
+                const isFavorite = this.favorites.includes(place.place_id);
+                
+                return `
+                    <div class="place-card bg-white rounded-lg card-shadow p-4 cursor-pointer" 
+                         onclick="app.showPlaceDetails('${place.place_id}')">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-800 text-sm mb-1">${place.name}</h3>
+                                <p class="text-xs text-gray-500">${categoryName}</p>
+                            </div>
+                            <button onclick="event.stopPropagation(); app.toggleFavorite('${place.place_id}')" 
+                                    class="p-2 ${isFavorite ? 'text-red-500' : 'text-gray-300'}">
+                                <svg class="w-4 h-4" fill="${isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="flex items-center">
+                                    ${this.renderStars(rating)}
+                                    <span class="text-xs text-gray-500 ml-1">${rating.toFixed(1)}</span>
+                                </div>
+                                <span class="text-xs text-gray-400">•</span>
+                                <span class="text-xs text-gray-500">${this.formatDistance(place)}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                                <span class="text-xs text-gray-600">Open Now</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs text-gray-500">Closing in</div>
+                                <div class="text-sm font-bold ${urgencyClass}" data-place-id="${place.place_id}" data-timer="${closingTime.getTime()}">
+                                    ${this.formatTimeRemaining(timeRemaining)}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p class="text-xs text-gray-400 mt-2">${place.vicinity}</p>
+                    </div>
+                `;
+            }
+
+            getCategoryDisplayName(category) {
+                const names = {
+                    restaurant: 'Restaurant',
+                    cafe: 'Café',
+                    store: 'Shop',
+                    movie_theater: 'Movie Theater',
+                    museum: 'Museum',
+                    tourist_attraction: 'Attraction',
+                    other: 'Place'
+                };
+                return names[category] || names.other;
+            }
+
+            renderStars(rating) {
+                const fullStars = Math.floor(rating);
+                const hasHalfStar = rating % 1 >= 0.5;
+                let stars = '';
+                
+                for (let i = 0; i < fullStars; i++) {
+                    stars += '<svg class="w-3 h-3 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>';
+                }
+                
+                if (hasHalfStar) {
+                    stars += '<svg class="w-3 h-3 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0v15z"/></svg>';
+                }
+                
+                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+                for (let i = 0; i < emptyStars; i++) {
+                    stars += '<svg class="w-3 h-3 text-gray-300 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>';
+                }
+                
+                return stars;
+            }
+
+            formatDistance(place) {
+                // Mock distance calculation
+                const distances = ['0.2 km', '0.5 km', '0.8 km', '1.2 km', '1.5 km'];
+                return distances[Math.floor(Math.random() * distances.length)];
+            }
+
+            startCountdownTimers() {
+                // Clear existing timers
+                this.timers.forEach(timer => clearInterval(timer));
+                this.timers.clear();
+                
+                // Start new timers for visible cards
+                const timerElements = document.querySelectorAll('[data-timer]');
+                timerElements.forEach(element => {
+                    const placeId = element.dataset.placeId;
+                    const closingTime = parseInt(element.dataset.timer);
+                    
+                    const timer = setInterval(() => {
+                        const now = new Date().getTime();
+                        const timeRemaining = closingTime - now;
+                        
+                        if (timeRemaining <= 0) {
+                            element.textContent = 'Closed';
+                            element.className = 'text-sm font-bold text-red-600';
+                            clearInterval(timer);
+                        } else {
+                            element.textContent = this.formatTimeRemaining(timeRemaining);
+                            element.className = `text-sm font-bold ${this.getTimerUrgencyClass(timeRemaining)}`;
+                        }
+                    }, 60000); // Update every minute
+                    
+                    this.timers.set(placeId, timer);
+                });
+            }
+
+            updateAllTimers() {
+                this.startCountdownTimers();
+            }
+
+            handleSearch(query) {
+                if (this.searchTimeout) {
+                    clearTimeout(this.searchTimeout);
+                }
+                
+                this.searchTimeout = setTimeout(() => {
+                    this.performSearch(query);
+                }, 300);
+            }
+
+            performSearch(query = '') {
+                if (!query.trim()) {
+                    this.filterPlaces();
+                    return;
+                }
+                
+                const filteredPlaces = this.places.filter(place => 
+                    place.name.toLowerCase().includes(query.toLowerCase()) ||
+                    (place.vicinity && place.vicinity.toLowerCase().includes(query.toLowerCase()))
+                );
+                
+                this.updateListView(filteredPlaces);
+            }
+
+            centerOnLocation() {
+                // Animate button press
+                anime({
+                    targets: '#centerLocationBtn',
+                    scale: [1, 0.9, 1],
+                    duration: 200,
+                    easing: 'easeOutQuad'
+                });
+                
+                this.showNotification('Centered on your location');
+            }
+
+            showPlaceDetails(placeId) {
+                const place = this.places.find(p => p.place_id === placeId);
+                if (place) {
+                    localStorage.setItem('selectedPlace', JSON.stringify(place));
+                    window.location.href = 'details.html';
+                }
+            }
+
+            toggleFavorite(placeId) {
+                const index = this.favorites.indexOf(placeId);
+                if (index > -1) {
+                    this.favorites.splice(index, 1);
+                } else {
+                    this.favorites.push(placeId);
+                }
+                
+                localStorage.setItem('favorites', JSON.stringify(this.favorites));
+                this.updateListView();
+            }
+
+            hideLoading() {
+                const loadingState = document.getElementById('loadingState');
+                anime({
+                    targets: loadingState,
+                    opacity: [1, 0],
+                    duration: 300,
+                    easing: 'easeOutQuad',
+                    complete: () => {
+                        loadingState.style.display = 'none';
+                    }
+                });
+            }
+
+            showNotification(message) {
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-20 left-4 right-4 bg-blue-500 text-white p-4 rounded-lg z-50';
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                anime({
+                    targets: notification,
+                    translateY: [-20, 0],
+                    opacity: [0, 1],
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+                
+                setTimeout(() => {
+                    anime({
+                        targets: notification,
+                        translateY: [0, -20],
+                        opacity: [1, 0],
+                        duration: 300,
+                        easing: 'easeOutQuad',
+                        complete: () => {
+                            document.body.removeChild(notification);
+                        }
+                    });
+                }, 3000);
+            }
+        }
+
+        // Initialize app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app = new NearbyPlacesApp();
+        });
+    </script>
+</body>
+</html>

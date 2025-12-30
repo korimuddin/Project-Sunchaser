@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Place Details - Nearby Places</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); }
+        .card-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .timer-urgent { animation: pulse 2s infinite; }
+        .timer-warning { animation: pulse 3s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .hero-image { height: 250px; }
+        .countdown-circle { 
+            width: 120px; 
+            height: 120px; 
+            border-radius: 50%; 
+            background: conic-gradient(#4ecdc4 0deg, #f3f4f6 0deg);
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+        .countdown-inner {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .splide__slide img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white p-4 sticky top-0 z-50">
+        <div class="flex items-center justify-between">
+            <button onclick="history.back()" class="p-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+            <h1 class="text-lg font-semibold">Place Details</h1>
+            <button id="shareBtn" class="p-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <div class="hero-image bg-gray-300 relative overflow-hidden">
+        <div id="photoGallery" class="splide w-full h-full">
+            <div class="splide__track h-full">
+                <ul class="splide__list h-full" id="photoList">
+                    <!-- Photos will be populated here -->
+                </ul>
+            </div>
+        </div>
+        <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+        <div class="absolute bottom-4 left-4 right-4 text-white">
+            <h2 id="placeName" class="text-2xl font-bold mb-1">Loading...</h2>
+            <p id="placeCategory" class="text-sm opacity-90">Category</p>
+        </div>
+    </div>
+
+    <!-- Countdown Timer -->
+    <div class="bg-white p-6 card-shadow mb-4">
+        <div class="text-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Time Remaining</h3>
+            <div class="countdown-circle mx-auto mb-4" id="countdownCircle">
+                <div class="countdown-inner">
+                    <div id="timerDisplay" class="text-2xl font-bold text-gray-800">--</div>
+                    <div id="timerUnit" class="text-xs text-gray-500">loading</div>
+                </div>
+            </div>
+            <div class="flex items-center justify-center space-x-2 mb-4">
+                <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                <span class="text-sm text-gray-600">Currently Open</span>
+            </div>
+            <div class="text-sm text-gray-500">
+                Closes at <span id="closingTime">--:--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Place Information -->
+    <div class="bg-white p-4 card-shadow mb-4">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Information</h3>
+        
+        <div class="space-y-4">
+            <!-- Address -->
+            <div class="flex items-start space-x-3">
+                <div class="p-2 bg-blue-100 rounded-lg">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-800">Address</p>
+                    <p id="placeAddress" class="text-sm text-gray-600">Loading address...</p>
+                </div>
+                <button id="directionsBtn" class="p-2 text-blue-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Phone -->
+            <div class="flex items-start space-x-3">
+                <div class="p-2 bg-green-100 rounded-lg">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-800">Phone</p>
+                    <p id="placePhone" class="text-sm text-gray-600">No phone number</p>
+                </div>
+                <button id="callBtn" class="p-2 text-green-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Website -->
+            <div class="flex items-start space-x-3">
+                <div class="p-2 bg-purple-100 rounded-lg">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-800">Website</p>
+                    <p id="placeWebsite" class="text-sm text-gray-600">No website</p>
+                </div>
+                <button id="websiteBtn" class="p-2 text-purple-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Rating -->
+            <div class="flex items-start space-x-3">
+                <div class="p-2 bg-yellow-100 rounded-lg">
+                    <svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-800">Rating</p>
+                    <div class="flex items-center">
+                        <div id="ratingStars" class="flex mr-2">
+                            <!-- Stars will be populated here -->
+                        </div>
+                        <span id="placeRating" class="text-sm text-gray-600">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Operating Hours -->
+    <div class="bg-white p-4 card-shadow mb-4">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Operating Hours</h3>
+        <div id="operatingHours" class="space-y-2">
+            <!-- Hours will be populated here -->
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="bg-white p-4 card-shadow mb-20">
+        <div class="grid grid-cols-2 gap-3">
+            <button id="favoriteBtn" class="flex items-center justify-center space-x-2 bg-red-50 text-red-600 p-3 rounded-lg border border-red-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+                <span class="font-medium">Favorite</span>
+            </button>
+            <button id="sharePlaceBtn" class="flex items-center justify-center space-x-2 bg-blue-50 text-blue-600 p-3 rounded-lg border border-blue-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                </svg>
+                <span class="font-medium">Share</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t z-40">
+        <div class="flex">
+            <a href="index.html" class="flex-1 py-3 px-4 text-center text-gray-400">
+                <svg class="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                <span class="text-xs">Discover</span>
+            </a>
+            <a href="favorites.html" class="flex-1 py-3 px-4 text-center text-gray-400">
+                <svg class="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+                <span class="text-xs">Favorites</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        class PlaceDetailsApp {
+            constructor() {
+                this.place = null;
+                this.countdownInterval = null;
+                this.favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+                
+                this.init();
+            }
+
+            init() {
+                this.loadPlaceData();
+                this.setupEventListeners();
+                this.initializePhotoGallery();
+            }
+
+            loadPlaceData() {
+                const placeData = localStorage.getItem('selectedPlace');
+                if (placeData) {
+                    this.place = JSON.parse(placeData);
+                    this.renderPlaceDetails();
+                } else {
+                    this.showError('No place data found');
+                }
+            }
+
+            renderPlaceDetails() {
+                if (!this.place) return;
+
+                // Basic info
+                document.getElementById('placeName').textContent = this.place.name;
+                document.getElementById('placeCategory').textContent = this.getCategoryDisplayName(this.getPlaceCategory(this.place));
+                
+                // Address
+                const address = this.place.vicinity || this.place.details?.formatted_address || 'Address not available';
+                document.getElementById('placeAddress').textContent = address;
+                
+                // Phone
+                const phone = this.place.details?.formatted_phone_number || 'No phone number';
+                document.getElementById('placePhone').textContent = phone;
+                
+                // Website
+                const website = this.place.details?.website || null;
+                if (website) {
+                    document.getElementById('placeWebsite').textContent = website.replace(/^https?:\/\//, '');
+                }
+                
+                // Rating
+                const rating = this.place.rating || 0;
+                document.getElementById('placeRating').textContent = `${rating.toFixed(1)}/5.0`;
+                document.getElementById('ratingStars').innerHTML = this.renderStars(rating);
+                
+                // Photos
+                this.renderPhotos();
+                
+                // Operating hours
+                this.renderOperatingHours();
+                
+                // Countdown timer
+                this.startCountdownTimer();
+                
+                // Update favorite button state
+                this.updateFavoriteButton();
+            }
+
+            getPlaceCategory(place) {
+                const types = place.types || [];
+                if (types.includes('restaurant')) return 'restaurant';
+                if (types.includes('cafe') || types.includes('coffee')) return 'cafe';
+                if (types.includes('store') || types.includes('shopping')) return 'store';
+                if (types.includes('movie_theater')) return 'movie_theater';
+                if (types.includes('museum')) return 'museum';
+                if (types.includes('tourist_attraction')) return 'tourist_attraction';
+                return 'other';
+            }
+
+            getCategoryDisplayName(category) {
+                const names = {
+                    restaurant: 'Restaurant',
+                    cafe: 'Café',
+                    store: 'Shop',
+                    movie_theater: 'Movie Theater',
+                    museum: 'Museum',
+                    tourist_attraction: 'Attraction',
+                    other: 'Place'
+                };
+                return names[category] || names.other;
+            }
+
+            renderStars(rating) {
+                const fullStars = Math.floor(rating);
+                const hasHalfStar = rating % 1 >= 0.5;
+                let stars = '';
+                
+                for (let i = 0; i < fullStars; i++) {
+                    stars += '<svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>';
+                }
+                
+                if (hasHalfStar) {
+                    stars += '<svg class="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0v15z"/></svg>';
+                }
+                
+                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+                for (let i = 0; i < emptyStars; i++) {
+                    stars += '<svg class="w-4 h-4 text-gray-300 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>';
+                }
+                
+                return stars;
+            }
+
+            renderPhotos() {
+                const photoList = document.getElementById('photoList');
+                
+                // Add placeholder photos if no real photos available
+                const placeholderPhotos = [
+                    'resources/cafe-atmosphere.png',
+                    'resources/cinema-hall.png',
+                    'resources/attraction-landmark.png'
+                ];
+                
+                photoList.innerHTML = placeholderPhotos.map(photo => `
+                    <li class="splide__slide">
+                        <img src="${photo}" alt="Place photo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y3ZjdmNyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4='">
+                    </li>
+                `).join('');
+                
+                // Initialize Splide carousel
+                if (typeof Splide !== 'undefined') {
+                    new Splide('#photoGallery', {
+                        type: 'loop',
+                        autoplay: true,
+                        interval: 4000,
+                        arrows: false,
+                        pagination: true
+                    }).mount();
+                }
+            }
+
+            renderOperatingHours() {
+                const hoursContainer = document.getElementById('operatingHours');
+                
+                if (this.place.details && this.place.details.opening_hours) {
+                    const periods = this.place.details.opening_hours.periods;
+                    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    
+                    hoursContainer.innerHTML = days.map((day, index) => {
+                        const period = periods[index];
+                        let hoursText = 'Closed';
+                        
+                        if (period && period.open && period.close) {
+                            const openTime = `${Math.floor(period.open.time / 100)}:${(period.open.time % 100).toString().padStart(2, '0')}`;
+                            const closeTime = `${Math.floor(period.close.time / 100)}:${(period.close.time % 100).toString().padStart(2, '0')}`;
+                            hoursText = `${openTime} - ${closeTime}`;
+                        }
+                        
+                        const isToday = index === new Date().getDay();
+                        
+                        return `
+                            <div class="flex justify-between items-center py-2 ${isToday ? 'bg-blue-50 px-2 rounded' : ''}">
+                                <span class="text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-700'}">${day}</span>
+                                <span class="text-sm ${isToday ? 'text-blue-600' : 'text-gray-600'}">${hoursText}</span>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    hoursContainer.innerHTML = '<p class="text-sm text-gray-500">Operating hours not available</p>';
+                }
+            }
+
+            startCountdownTimer() {
+                const closingTime = this.getClosingTime();
+                
+                const updateTimer = () => {
+                    const now = new Date();
+                    const timeRemaining = closingTime.getTime() - now.getTime();
+                    
+                    if (timeRemaining <= 0) {
+                        document.getElementById('timerDisplay').textContent = 'Closed';
+                        document.getElementById('timerUnit').textContent = '';
+                        this.updateCountdownCircle(0);
+                        if (this.countdownInterval) {
+                            clearInterval(this.countdownInterval);
+                        }
+                    } else {
+                        const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+                        const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+                        
+                        if (hours > 0) {
+                            document.getElementById('timerDisplay').textContent = `${hours}h ${minutes}m`;
+                            document.getElementById('timerUnit').textContent = `${seconds}s`;
+                        } else {
+                            document.getElementById('timerDisplay').textContent = `${minutes}m ${seconds}s`;
+                            document.getElementById('timerUnit').textContent = '';
+                        }
+                        
+                        // Update circle progress
+                        const totalSeconds = 8 * 60 * 60; // 8 hours default
+                        const elapsedSeconds = totalSeconds - (timeRemaining / 1000);
+                        const progress = Math.max(0, (elapsedSeconds / totalSeconds) * 360);
+                        this.updateCountdownCircle(progress);
+                        
+                        // Update urgency styling
+                        this.updateTimerStyling(timeRemaining);
+                    }
+                };
+                
+                updateTimer();
+                this.countdownInterval = setInterval(updateTimer, 1000);
+                
+                // Display closing time
+                const closingTimeStr = closingTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                document.getElementById('closingTime').textContent = closingTimeStr;
+            }
+
+            getClosingTime() {
+                if (this.place.details && this.place.details.opening_hours) {
+                    const today = new Date();
+                    const dayOfWeek = today.getDay();
+                    const periods = this.place.details.opening_hours.periods;
+                    
+                    if (periods && periods[dayOfWeek]) {
+                        const closeTime = periods[dayOfWeek].close;
+                        if (closeTime) {
+                            const closingDate = new Date();
+                            closingDate.setHours(Math.floor(closeTime.time / 100), closeTime.time % 100, 0, 0);
+                            return closingDate;
+                        }
+                    }
+                }
+                
+                // Default closing time (11 PM)
+                const defaultClosing = new Date();
+                defaultClosing.setHours(23, 0, 0, 0);
+                return defaultClosing;
+            }
+
+            updateCountdownCircle(progress) {
+                const circle = document.getElementById('countdownCircle');
+                const gradient = `conic-gradient(#4ecdc4 ${progress}deg, #f3f4f6 ${progress}deg)`;
+                circle.style.background = gradient;
+            }
+
+            updateTimerStyling(timeRemaining) {
+                const hours = timeRemaining / (1000 * 60 * 60);
+                const timerDisplay = document.getElementById('timerDisplay');
+                const timerUnit = document.getElementById('timerUnit');
+                
+                if (hours < 0.5) {
+                    timerDisplay.className = 'text-2xl font-bold text-red-600 timer-urgent';
+                    timerUnit.className = 'text-xs text-red-500';
+                } else if (hours < 2) {
+                    timerDisplay.className = 'text-2xl font-bold text-orange-600 timer-warning';
+                    timerUnit.className = 'text-xs text-orange-500';
+                } else {
+                    timerDisplay.className = 'text-2xl font-bold text-gray-800';
+                    timerUnit.className = 'text-xs text-gray-500';
+                }
+            }
+
+            setupEventListeners() {
+                // Favorite button
+                document.getElementById('favoriteBtn').addEventListener('click', () => {
+                    this.toggleFavorite();
+                });
+                
+                // Share button
+                document.getElementById('sharePlaceBtn').addEventListener('click', () => {
+                    this.sharePlace();
+                });
+                
+                // Directions button
+                document.getElementById('directionsBtn').addEventListener('click', () => {
+                    this.openDirections();
+                });
+                
+                // Call button
+                document.getElementById('callBtn').addEventListener('click', () => {
+                    this.makeCall();
+                });
+                
+                // Website button
+                document.getElementById('websiteBtn').addEventListener('click', () => {
+                    this.openWebsite();
+                });
+            }
+
+            toggleFavorite() {
+                if (!this.place) return;
+                
+                const placeId = this.place.place_id;
+                const index = this.favorites.indexOf(placeId);
+                const favoriteBtn = document.getElementById('favoriteBtn');
+                
+                if (index > -1) {
+                    this.favorites.splice(index, 1);
+                    favoriteBtn.className = 'flex items-center justify-center space-x-2 bg-red-50 text-red-600 p-3 rounded-lg border border-red-200';
+                    favoriteBtn.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                        <span class="font-medium">Favorite</span>
+                    `;
+                } else {
+                    this.favorites.push(placeId);
+                    favoriteBtn.className = 'flex items-center justify-center space-x-2 bg-red-500 text-white p-3 rounded-lg border border-red-500';
+                    favoriteBtn.innerHTML = `
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                        <span class="font-medium">Favorited</span>
+                    `;
+                }
+                
+                localStorage.setItem('favorites', JSON.stringify(this.favorites));
+                
+                // Animate button
+                anime({
+                    targets: favoriteBtn,
+                    scale: [1, 0.95, 1],
+                    duration: 200,
+                    easing: 'easeOutQuad'
+                });
+            }
+
+            updateFavoriteButton() {
+                if (!this.place) return;
+                
+                const placeId = this.place.place_id;
+                const isFavorite = this.favorites.includes(placeId);
+                const favoriteBtn = document.getElementById('favoriteBtn');
+                
+                if (isFavorite) {
+                    favoriteBtn.className = 'flex items-center justify-center space-x-2 bg-red-500 text-white p-3 rounded-lg border border-red-500';
+                    favoriteBtn.innerHTML = `
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                        <span class="font-medium">Favorited</span>
+                    `;
+                }
+            }
+
+            sharePlace() {
+                if (!this.place) return;
+                
+                if (navigator.share) {
+                    navigator.share({
+                        title: this.place.name,
+                        text: `Check out ${this.place.name} - ${this.place.vicinity}`,
+                        url: window.location.href
+                    });
+                } else {
+                    // Fallback: copy to clipboard
+                    const shareText = `${this.place.name} - ${this.place.vicinity}`;
+                    navigator.clipboard.writeText(shareText).then(() => {
+                        this.showNotification('Place details copied to clipboard');
+                    });
+                }
+            }
+
+            openDirections() {
+                if (!this.place) return;
+                
+                const address = this.place.vicinity || this.place.details?.formatted_address;
+                if (address) {
+                    const encodedAddress = encodeURIComponent(address);
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+                }
+            }
+
+            makeCall() {
+                const phone = this.place.details?.formatted_phone_number;
+                if (phone) {
+                    window.open(`tel:${phone.replace(/\s/g, '')}`, '_blank');
+                } else {
+                    this.showNotification('Phone number not available');
+                }
+            }
+
+            openWebsite() {
+                const website = this.place.details?.website;
+                if (website) {
+                    window.open(website, '_blank');
+                } else {
+                    this.showNotification('Website not available');
+                }
+            }
+
+            initializePhotoGallery() {
+                // Initialize Splide carousel when available
+                if (typeof Splide !== 'undefined') {
+                    setTimeout(() => {
+                        new Splide('#photoGallery', {
+                            type: 'loop',
+                            autoplay: true,
+                            interval: 4000,
+                            arrows: false,
+                            pagination: true
+                        }).mount();
+                    }, 100);
+                }
+            }
+
+            showNotification(message) {
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-20 left-4 right-4 bg-blue-500 text-white p-4 rounded-lg z-50';
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                anime({
+                    targets: notification,
+                    translateY: [-20, 0],
+                    opacity: [0, 1],
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+                
+                setTimeout(() => {
+                    anime({
+                        targets: notification,
+                        translateY: [0, -20],
+                        opacity: [1, 0],
+                        duration: 300,
+                        easing: 'easeOutQuad',
+                        complete: () => {
+                            document.body.removeChild(notification);
+                        }
+                    });
+                }, 3000);
+            }
+
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'fixed top-20 left-4 right-4 bg-red-500 text-white p-4 rounded-lg z-50';
+                errorDiv.innerHTML = `
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>${message}</span>
+                    </div>
+                `;
+                
+                document.body.appendChild(errorDiv);
+                
+                setTimeout(() => {
+                    document.body.removeChild(errorDiv);
+                }, 5000);
+            }
+        }
+
+        // Initialize app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new PlaceDetailsApp();
+        });
+    </script>
+</body>
+</html>

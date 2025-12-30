@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favorites - Nearby Places</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); }
+        .card-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .place-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .place-card:active { transform: scale(0.98); }
+        .search-bar { transition: width 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white p-4 sticky top-0 z-50">
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-xl font-bold">Favorites</h1>
+            <div class="flex items-center space-x-2">
+                <span id="favoritesCount" class="text-sm bg-white/20 px-2 py-1 rounded-full">0</span>
+            </div>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="relative">
+            <input type="text" id="searchFavoritesInput" placeholder="Search favorites..." 
+                   class="w-full px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50">
+            <button id="searchFavoritesBtn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-white/70">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Sort and Filter Options -->
+    <div class="bg-white p-4 border-b">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-gray-700">Sort by:</h3>
+            <select id="sortSelect" class="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="name">Name</option>
+                <option value="distance">Distance</option>
+                <option value="closing">Closing Time</option>
+                <option value="added">Date Added</option>
+            </select>
+        </div>
+        
+        <!-- Category Filter -->
+        <div class="flex space-x-2 overflow-x-auto pb-2" id="categoryFilter">
+            <button class="filter-btn bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap" data-category="all">
+                All
+            </button>
+            <button class="filter-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap" data-category="restaurant">
+                Restaurants
+            </button>
+            <button class="filter-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap" data-category="cafe">
+                Cafés
+            </button>
+            <button class="filter-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap" data-category="store">
+                Shops
+            </button>
+            <button class="filter-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap" data-category="movie_theater">
+                Theatres
+            </button>
+            <button class="filter-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap" data-category="museum">
+                Museums
+            </button>
+            <button class="filter-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap" data-category="tourist_attraction">
+                Attractions
+            </button>
+        </div>
+    </div>
+
+    <!-- Favorites List -->
+    <div class="p-4 pb-20">
+        <div id="favoritesList" class="space-y-4">
+            <!-- Favorites will be populated here -->
+        </div>
+        
+        <!-- Empty State -->
+        <div id="emptyState" class="text-center py-12 hidden">
+            <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-800 mb-2">No favorites yet</h3>
+            <p class="text-gray-600 mb-6">Start exploring and save places you love!</p>
+            <a href="index.html" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                Discover Places
+            </a>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t z-40">
+        <div class="flex">
+            <a href="index.html" class="flex-1 py-3 px-4 text-center text-gray-400">
+                <svg class="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                <span class="text-xs">Discover</span>
+            </a>
+            <a href="favorites.html" class="flex-1 py-3 px-4 text-center text-blue-600">
+                <svg class="w-6 h-6 mx-auto mb-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+                <span class="text-xs">Favorites</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        class FavoritesApp {
+            constructor() {
+                this.favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+                this.places = JSON.parse(localStorage.getItem('favoritePlaces') || '[]');
+                this.filteredPlaces = [];
+                this.currentSort = 'name';
+                this.currentFilter = 'all';
+                this.searchQuery = '';
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.loadFavorites();
+                this.updateFavoritesCount();
+            }
+
+            setupEventListeners() {
+                // Search functionality
+                document.getElementById('searchFavoritesInput').addEventListener('input', (e) => {
+                    this.searchQuery = e.target.value.toLowerCase();
+                    this.filterAndSortPlaces();
+                });
+
+                // Sort functionality
+                document.getElementById('sortSelect').addEventListener('change', (e) => {
+                    this.currentSort = e.target.value;
+                    this.filterAndSortPlaces();
+                });
+
+                // Category filter
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.setActiveFilter(e.target.dataset.category);
+                    });
+                });
+            }
+
+            loadFavorites() {
+                if (this.favorites.length === 0) {
+                    this.showEmptyState();
+                    return;
+                }
+
+                // Load favorite places from localStorage or create mock data
+                if (this.places.length === 0) {
+                    this.places = this.generateMockFavoritePlaces();
+                    localStorage.setItem('favoritePlaces', JSON.stringify(this.places));
+                }
+
+                this.filterAndSortPlaces();
+            }
+
+            generateMockFavoritePlaces() {
+                // Generate some mock favorite places for demonstration
+                const mockPlaces = [
+                    {
+                        place_id: 'mock1',
+                        name: 'The Coffee House',
+                        vicinity: '123 Main St, Downtown',
+                        types: ['cafe', 'restaurant'],
+                        rating: 4.5,
+                        geometry: { location: { lat: 40.7128, lng: -74.0060 } }
+                    },
+                    {
+                        place_id: 'mock2',
+                        name: 'City Museum of Art',
+                        vicinity: '456 Art District, Museum Quarter',
+                        types: ['museum'],
+                        rating: 4.8,
+                        geometry: { location: { lat: 40.7589, lng: -73.9851 } }
+                    },
+                    {
+                        place_id: 'mock3',
+                        name: 'Bella Italia Restaurant',
+                        vicinity: '789 Little Italy, Food Street',
+                        types: ['restaurant'],
+                        rating: 4.3,
+                        geometry: { location: { lat: 40.7505, lng: -73.9934 } }
+                    },
+                    {
+                        place_id: 'mock4',
+                        name: 'Grand Cinema Complex',
+                        vicinity: '321 Theater District, Entertainment Ave',
+                        types: ['movie_theater'],
+                        rating: 4.1,
+                        geometry: { location: { lat: 40.7614, lng: -73.9776 } }
+                    },
+                    {
+                        place_id: 'mock5',
+                        name: 'Fashion Boutique',
+                        vicinity: '654 Shopping Mall, Retail Boulevard',
+                        types: ['store'],
+                        rating: 4.0,
+                        geometry: { location: { lat: 40.7282, lng: -73.9942 } }
+                    },
+                    {
+                        place_id: 'mock6',
+                        name: 'Skyline Observation Deck',
+                        vicinity: '987 Tower Heights, View Point',
+                        types: ['tourist_attraction'],
+                        rating: 4.7,
+                        geometry: { location: { lat: 40.7489, lng: -73.9680 } }
+                    }
+                ];
+
+                return mockPlaces.filter(place => this.favorites.includes(place.place_id));
+            }
+
+            filterAndSortPlaces() {
+                // Filter by search query
+                let filtered = this.places.filter(place => {
+                    const matchesSearch = !this.searchQuery || 
+                        place.name.toLowerCase().includes(this.searchQuery) ||
+                        place.vicinity.toLowerCase().includes(this.searchQuery);
+                    
+                    const matchesCategory = this.currentFilter === 'all' || 
+                        this.getPlaceCategory(place) === this.currentFilter;
+                    
+                    return matchesSearch && matchesCategory;
+                });
+
+                // Sort places
+                filtered = this.sortPlaces(filtered);
+
+                this.filteredPlaces = filtered;
+                this.renderFavorites();
+            }
+
+            sortPlaces(places) {
+                switch (this.currentSort) {
+                    case 'name':
+                        return places.sort((a, b) => a.name.localeCompare(b.name));
+                    case 'distance':
+                        return places.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                    case 'closing':
+                        return places.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                    case 'added':
+                        return places.reverse(); // Most recent first
+                    default:
+                        return places;
+                }
+            }
+
+            getPlaceCategory(place) {
+                const types = place.types || [];
+                if (types.includes('restaurant')) return 'restaurant';
+                if (types.includes('cafe') || types.includes('coffee')) return 'cafe';
+                if (types.includes('store') || types.includes('shopping')) return 'store';
+                if (types.includes('movie_theater')) return 'movie_theater';
+                if (types.includes('museum')) return 'museum';
+                if (types.includes('tourist_attraction')) return 'tourist_attraction';
+                return 'other';
+            }
+
+            setActiveFilter(category) {
+                // Update button states
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.className = 'filter-btn bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap';
+                });
+                
+                const activeBtn = document.querySelector(`[data-category="${category}"]`);
+                activeBtn.className = 'filter-btn bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap';
+                
+                this.currentFilter = category;
+                this.filterAndSortPlaces();
+
+                // Animate button
+                anime({
+                    targets: activeBtn,
+                    scale: [1, 0.95, 1],
+                    duration: 200,
+                    easing: 'easeOutQuad'
+                });
+            }
+
+            renderFavorites() {
+                const favoritesList = document.getElementById('favoritesList');
+                const emptyState = document.getElementById('emptyState');
+
+                if (this.filteredPlaces.length === 0) {
+                    favoritesList.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+
+                emptyState.classList.add('hidden');
+                favoritesList.innerHTML = this.filteredPlaces.map(place => this.createPlaceCard(place)).join('');
+
+                // Animate cards
+                anime({
+                    targets: '.place-card',
+                    translateY: [20, 0],
+                    opacity: [0, 1],
+                    delay: anime.stagger(100),
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+            }
+
+            createPlaceCard(place) {
+                const category = this.getPlaceCategory(place);
+                const categoryName = this.getCategoryDisplayName(category);
+                const rating = place.rating || 0;
+                const closingTime = this.getMockClosingTime();
+                const timeRemaining = closingTime.getTime() - new Date().getTime();
+                const urgencyClass = this.getTimerUrgencyClass(timeRemaining);
+
+                return `
+                    <div class="place-card bg-white rounded-lg card-shadow p-4 cursor-pointer" 
+                         onclick="favoritesApp.showPlaceDetails('${place.place_id}')">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-800 text-sm mb-1">${place.name}</h3>
+                                <p class="text-xs text-gray-500">${categoryName}</p>
+                            </div>
+                            <button onclick="event.stopPropagation(); favoritesApp.removeFavorite('${place.place_id}')" 
+                                    class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="flex items-center">
+                                    ${this.renderStars(rating)}
+                                    <span class="text-xs text-gray-500 ml-1">${rating.toFixed(1)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                                <span class="text-xs text-gray-600">Open Now</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs text-gray-500">Closing in</div>
+                                <div class="text-sm font-bold ${urgencyClass}">
+                                    ${this.formatTimeRemaining(timeRemaining)}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p class="text-xs text-gray-400 mt-2">${place.vicinity}</p>
+                    </div>
+                `;
+            }
+
+            getCategoryDisplayName(category) {
+                const names = {
+                    restaurant: 'Restaurant',
+                    cafe: 'Café',
+                    store: 'Shop',
+                    movie_theater: 'Movie Theater',
+                    museum: 'Museum',
+                    tourist_attraction: 'Attraction',
+                    other: 'Place'
+                };
+                return names[category] || names.other;
+            }
+
+            getMockClosingTime() {
+                const closing = new Date();
+                closing.setHours(22, 0, 0, 0); // 10 PM
+                return closing;
+            }
+
+            getTimerUrgencyClass(timeRemaining) {
+                const hours = timeRemaining / (1000 * 60 * 60);
+                if (hours < 0.5) return 'text-red-600';
+                if (hours < 2) return 'text-orange-600';
+                return 'text-green-600';
+            }
+
+            formatTimeRemaining(timeRemaining) {
+                if (timeRemaining <= 0) return 'Closed';
+                
+                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                
+                if (hours > 0) {
+                    return `${hours}h ${minutes}m`;
+                }
+                return `${minutes}m`;
+            }
+
+            renderStars(rating) {
+                const fullStars = Math.floor(rating);
+                const hasHalfStar = rating % 1 >= 0.5;
+                let stars = '';
+                
+                for (let i = 0; i < fullStars; i++) {
+                    stars += '<svg class="w-3 h-3 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>';
+                }
+                
+                if (hasHalfStar) {
+                    stars += '<svg class="w-3 h-3 text-yellow-400 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0v15z"/></svg>';
+                }
+                
+                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+                for (let i = 0; i < emptyStars; i++) {
+                    stars += '<svg class="w-3 h-3 text-gray-300 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>';
+                }
+                
+                return stars;
+            }
+
+            removeFavorite(placeId) {
+                // Remove from favorites array
+                this.favorites = this.favorites.filter(id => id !== placeId);
+                localStorage.setItem('favorites', JSON.stringify(this.favorites));
+                
+                // Remove from places array
+                this.places = this.places.filter(place => place.place_id !== placeId);
+                localStorage.setItem('favoritePlaces', JSON.stringify(this.places));
+                
+                this.updateFavoritesCount();
+                this.filterAndSortPlaces();
+                
+                this.showNotification('Removed from favorites');
+            }
+
+            showPlaceDetails(placeId) {
+                // Find the place and store it for details page
+                const place = this.places.find(p => p.place_id === placeId);
+                if (place) {
+                    localStorage.setItem('selectedPlace', JSON.stringify(place));
+                    window.location.href = 'details.html';
+                }
+            }
+
+            updateFavoritesCount() {
+                document.getElementById('favoritesCount').textContent = this.favorites.length;
+            }
+
+            showEmptyState() {
+                document.getElementById('favoritesList').innerHTML = '';
+                document.getElementById('emptyState').classList.remove('hidden');
+            }
+
+            showNotification(message) {
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-20 left-4 right-4 bg-blue-500 text-white p-4 rounded-lg z-50';
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                anime({
+                    targets: notification,
+                    translateY: [-20, 0],
+                    opacity: [0, 1],
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+                
+                setTimeout(() => {
+                    anime({
+                        targets: notification,
+                        translateY: [0, -20],
+                        opacity: [1, 0],
+                        duration: 300,
+                        easing: 'easeOutQuad',
+                        complete: () => {
+                            document.body.removeChild(notification);
+                        }
+                    });
+                }, 3000);
+            }
+        }
+
+        // Initialize app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.favoritesApp = new FavoritesApp();
+        });
+    </script>
+</body>
+</html>
